@@ -1,141 +1,95 @@
-# news_fetch_auto.py
-import feedparser
-from transformers import pipeline
-import firebase_admin
-from firebase_admin import credentials, firestore
+# news_fetch.py
 import os
 import json
+import feedparser
+import firebase_admin
+from firebase_admin import credentials, firestore
+from transformers import pipeline
 
-# --------------------------
-# 1) Firebase ayarları
-# --------------------------
-firebase_key_json = os.getenv("FIREBASE_KEY_JSON")
+# -----------------------------
+# 1. Firebase bağlantısı
+# -----------------------------
+firebase_key_json = os.environ.get("firebase_key.json")
+if not firebase_key_json:
+    raise Exception("FIREBASE_KEY_JSON ortam değişkeni tanımlı değil!")
 
-if firebase_key_json:
-    cred = credentials.Certificate(json.loads(firebase_key_json))
-    firebase_admin.initialize_app(cred)
-else:
-    raise ValueError("FIREBASE_KEY_JSON not found in environment variables.")
+cred_dict = json.loads(firebase_key_json)
+cred = credentials.Certificate(cred_dict)
+firebase_admin.initialize_app(cred)
+db = firestore.client()
 
-# --------------------------
-# 2) RSS kaynakları
-# --------------------------
+# -----------------------------
+# 2. RSS kaynakları
+# -----------------------------
 FEEDS = [
-   "https://www.aa.com.tr/tr/rss/default?cat=guncel",
-    "https://www.aa.com.tr/tr/rss/default?cat=ekonomi",
-    "https://www.aa.com.tr/tr/rss/default?cat=spor",
-    "http://www.hurriyet.com.tr/rss/anasayfa",
-    "http://www.hurriyet.com.tr/rss/gundem",
+    "https://www.aa.com.tr/tr/rss/default?cat=guncel",
+    "https://www.hurriyet.com.tr/rss/anasayfa",
     "https://www.milliyet.com.tr/rss/rssnew/sondakikarss.xml",
-    "https://www.milliyet.com.tr/rss/rssnew/gundem.xml",
-    "https://www.sabah.com.tr/rss/anasayfa.xml",
     "https://www.sabah.com.tr/rss/gundem.xml",
-    "https://www.haberturk.com/rss/kategori/gundem.xml",
-    "https://www.cumhuriyet.com.tr/rss/son_dakika.xml",
-    "https://www.ensonhaber.com/rss/ensonhaber.xml",
-    "https://rss.haberler.com/rss.asp?kategori=guncel",
-    "https://www.yenisafak.com/rss/gundem.xml",
-     "https://www.aksam.com.tr/rss/gundem.xml",
-    "https://www.star.com.tr/rss/gundem.xml",
-    "hhttps://www.birgun.net/rss/home",
-    "https://www.gazeteduvar.com.tr/export/rss",
-    "https://www.diken.com.tr/feed/",
-    "https://www.tgrthaber.com.tr/feed/gundem",
     "https://www.ntv.com.tr/son-dakika.rss",
-    "https://www.ntv.com.tr/turkiye.rss",
-    "https://www.cnnturk.com/feed/rss/all/news",
-    "https://www.cnnturk.com/feed/rss/turkiye/news",
-    "http://www.trthaber.com/sondakika.rss",
-    "http://www.trthaber.com/gundem.rss",
-    "https://www.ahaber.com.tr/rss/anasayfa.xml",
-    "https://www.ahaber.com.tr/rss/gundem.xml",
-    "https://halktv.com.tr/service/rss.php",
-    "http://feeds.bbci.co.uk/turkce/rss.xml",
-    "https://rss.dw.com/rdf/rss-tur-all",
-    "https://tr.sputniknews.com/export/rss2/archive/index.xml",
-    "http://www.hurriyet.com.tr/rss/ekonomi",
-    "https://www.milliyet.com.tr/rss/rssnew/ekonomi.xml",
-    "https://www.sabah.com.tr/rss/ekonomi.xml",
-    "https://www.ntv.com.tr/ekonomi.rss",
-    "http://www.hurriyet.com.tr/rss/spor",
-    "https://www.milliyet.com.tr/rss/rssnew/spor.xml",
-    "https://www.sabah.com.tr/rss/spor.xml",
-    "https://www.ntv.com.tr/teknoloji.rss",
-    "https://www.dha.com.tr/rss/gundem.xml",
-    "https://www.iha.com.tr/rss/gundem/",
-    "https://www.iha.com.tr/rss/ekonomi/",
-    "https://www.sozcu.com.tr/feed/",
-    "https://www.sozcu.com.tr/kategori/gundem/feed/",
     "https://t24.com.tr/rss",
-    "http://www.mynet.com/haber/rss/sondakika",
-    "https://www.indyturk.com/rss",
-    "https://odatv.com/rss.php",
-    "https://www.turkiyegazetesi.com.tr/rss/rss.xml",
-    "https://www.takvim.com.tr/rss/gundem.xml",
-    "https://www.karar.com/rss/gundem.xml",
-    "https://www.ekonomim.com/rss",
-    "https://www.bloomberght.com/rss",
-    "http://www.bigpara.com/rss/borsa/",
-    "https://www.fanatik.com.tr/rss/rssnew/fanatikrss.xml",
-    "https://www.fotomac.com.tr/rss/anasayfa.xml",
-    "https://beinsports.com.tr/rss",
-    "https://www.ntv.com.tr/spor.rss",
-    "https://www.trthaber.com/spor.rss",
-    "https://shiftdelete.net/feed",
-    "https://webrazzi.com/feed/",
-    "https://www.chip.com.tr/rss.xml",
-    "https://teknoseyir.com/feed",
-    "http://www.hurriyet.com.tr/rss/magazin",
-    "https://www.milliyet.com.tr/rss/rssnew/magazinrss.xml",
-    "https://www.sabah.com.tr/rss/magazin.xml",
-    "https://www.ntv.com.tr/saglik.rss",
-    "http://www.hurriyet.com.tr/rss/saglik",
-    "https://www.cnnturk.com/feed/rss/saglik/news"
+    "https://www.sozcu.com.tr/feed/",
+    "http://feeds.bbci.co.uk/turkce/rss.xml"
 ]
 
-# --------------------------
-# 3) AI Özetleyici (local)
-# --------------------------
-ozetleyici = pipeline("summarization", model="facebook/bart-large-cnn")
+# -----------------------------
+# 3. AI özetleyici (hafif model)
+# -----------------------------
+print("AI özetleyici modeli yükleniyor...")
+ozetleyici = pipeline("summarization", model="t5-small", tokenizer="t5-small")
 
 def ozet_hazirla(metin):
+    """Kısa haber metinlerini özetle"""
+    if not metin:
+        return ""
     try:
-        ozet = ozetleyici(metin, max_length=60, min_length=25, do_sample=False)
+        ozet = ozetleyici(metin[:500], max_length=60, min_length=15, do_sample=False)
         return ozet[0]['summary_text']
-    except:
-        return metin[:200]  # özetlenemezse ilk 200 karakteri al
+    except Exception as e:
+        print("Özetleme hatası:", e)
+        return metin[:150]
 
-# --------------------------
-# 4) Haberleri çek ve özetle
-# --------------------------
-def fetch_and_save(limit_per_feed=5):
+# -----------------------------
+# 4. Haberleri çekme ve kaydetme
+# -----------------------------
+def fetch_and_save(limit_per_feed=3):
     toplam = 0
     for url in FEEDS:
-        feed = feedparser.parse(url)
-        source = feed.feed.get("title", url)
-        entries = feed.entries[:limit_per_feed]
-        for e in entries:
-            baslik = e.get("title", "")
-            link = e.get("link", "")
-            tarih = e.get("published", "")
-            metin = e.get("summary", "")  # RSS içeriği
+        try:
+            feed = feedparser.parse(url)
+            source = feed.feed.get("title", url)
+            entries = feed.entries[:limit_per_feed]
 
-            # AI ile özetle
-            ozet = ozet_hazirla(metin)
+            for e in entries:
+                baslik = e.get("title", "")
+                link = e.get("link", "")
+                tarih = e.get("published", "")
+                metin = e.get("summary", "")
 
-            # Firebase'e kaydet
-            haber_doc = {
-                "baslik": baslik,
-                "ozet": ozet,
-                "link": link,
-                "kaynak": source,
-                "tarih": tarih
-            }
-            db.collection("haberler").add(haber_doc)
-            toplam += 1
-            print(f"Kaydedildi: {baslik[:50]}...")
+                if not baslik or not link:
+                    continue
+
+                # AI ile özetle
+                ozet = ozet_hazirla(metin)
+
+                # Firestore'a kaydet
+                haber_doc = {
+                    "baslik": baslik,
+                    "ozet": ozet,
+                    "link": link,
+                    "kaynak": source,
+                    "tarih": tarih
+                }
+                db.collection("haberler").add(haber_doc)
+                toplam += 1
+                print(f"Kaydedildi: {baslik[:60]}...")
+        except Exception as ex:
+            print(f"{url} kaynağında hata: {ex}")
 
     print(f"Toplam {toplam} haber kaydedildi.")
 
+# -----------------------------
+# 5. Ana çalışma
+# -----------------------------
 if __name__ == "__main__":
-    fetch_and_save(limit_per_feed=2)  # her feedden 5 haber çek
+    fetch_and_save(limit_per_feed=3)

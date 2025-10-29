@@ -3,5 +3,3 @@ requests
 firebase-admin
 openai
 schedule
-transformers 
-torch
