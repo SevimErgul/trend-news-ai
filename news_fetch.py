@@ -9,7 +9,7 @@ from transformers import pipeline
 # -----------------------------
 # 1. Firebase bağlantısı
 # -----------------------------
-firebase_key_json = os.environ.get("firebase_key.json")
+firebase_key_json = os.environ.get("FIREBASE_KEY_JSON")
 if not firebase_key_json:
     raise Exception("FIREBASE_KEY_JSON ortam değişkeni tanımlı değil!")
 
