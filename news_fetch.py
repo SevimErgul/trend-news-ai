@@ -22,13 +22,7 @@ db = firestore.client()
 # 2. RSS kaynakları
 # -----------------------------
 FEEDS = [
-    "https://www.aa.com.tr/tr/rss/default?cat=guncel",
     "https://www.hurriyet.com.tr/rss/anasayfa",
-    "https://www.milliyet.com.tr/rss/rssnew/sondakikarss.xml",
-    "https://www.sabah.com.tr/rss/gundem.xml",
-    "https://www.ntv.com.tr/son-dakika.rss",
-    "https://t24.com.tr/rss",
-    "https://www.sozcu.com.tr/feed/",
     "http://feeds.bbci.co.uk/turkce/rss.xml"
 ]
 
