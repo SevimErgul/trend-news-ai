@@ -3,13 +3,19 @@ import feedparser
 from transformers import pipeline
 import firebase_admin
 from firebase_admin import credentials, firestore
+import os
+import json
 
 # --------------------------
 # 1) Firebase ayarları
 # --------------------------
-cred = credentials.Certificate("firebase_key.json")  # Firebase key dosyan
-firebase_admin.initialize_app(cred)
-db = firestore.client()
+firebase_key_json = os.getenv("FIREBASE_KEY_JSON")
+
+if firebase_key_json:
+    cred = credentials.Certificate(json.loads(firebase_key_json))
+    firebase_admin.initialize_app(cred)
+else:
+    raise ValueError("FIREBASE_KEY_JSON not found in environment variables.")
 
 # --------------------------
 # 2) RSS kaynakları
